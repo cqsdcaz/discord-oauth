@@ -7,16 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 min-h-screen">
-    <div id="app" class="min-h-screen flex items-center justify-center p-4">
-        <!-- Content will be inserted here by JavaScript -->
-    </div>
+    <div id="app" class="min-h-screen flex items-center justify-center p-4"></div>
 
     <script>
         const SUPABASE_URL = 'https://llcduwzzqihmoordklxj.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsY2R1d3p6cWlobW9vcmRrbHhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1ODkzNzMsImV4cCI6MjA3NTE2NTM3M30.1qDmzvMl_F7rsSYkyt_wmNegUcVsdu17VhAmSX3YH6I';
         const DISCORD_CLIENT_ID = '1399780727834280006';
         const DISCORD_CLIENT_SECRET = 'Qka1KtqoIoKAl8wt8F019JtMvYAymUS6';
-        const REDIRECT_URI = window.location.origin + '/callback';
+
+        // ✅ Fixed redirect URI (no /callback)
+        const REDIRECT_URI = window.location.origin + '/';
 
         let currentUser = null;
 
@@ -117,37 +117,28 @@
 
         async function handleCallback(code) {
             showLoading();
-
             try {
                 const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
                         client_id: DISCORD_CLIENT_ID,
                         client_secret: DISCORD_CLIENT_SECRET,
                         grant_type: 'authorization_code',
                         code: code,
-                        redirect_uri: REDIRECT_URI,
+                        redirect_uri: REDIRECT_URI, // ✅ updated
                     }),
                 });
 
                 const tokenData = await tokenResponse.json();
-
-                if (!tokenResponse.ok) {
-                    throw new Error(tokenData.error_description || 'Failed to get access token');
-                }
+                if (!tokenResponse.ok) throw new Error(tokenData.error_description || 'Failed to get access token');
 
                 const userResponse = await fetch('https://discord.com/api/users/@me', {
-                    headers: {
-                        Authorization: `Bearer ${tokenData.access_token}`,
-                    },
+                    headers: { Authorization: `Bearer ${tokenData.access_token}` },
                 });
-
                 const userData = await userResponse.json();
 
-                const supabaseResponse = await fetch(`${SUPABASE_URL}/rest/v1/discord_users`, {
+                await fetch(`${SUPABASE_URL}/rest/v1/discord_users`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -166,22 +157,9 @@
                     }),
                 });
 
-                if (!supabaseResponse.ok) {
-                    const errorData = await supabaseResponse.json();
-                    console.error('Supabase error:', errorData);
-                }
-
-                const userInfo = {
-                    id: userData.id,
-                    username: userData.username,
-                    discriminator: userData.discriminator || '0',
-                    avatar: userData.avatar,
-                    email: userData.email,
-                };
-
-                currentUser = userInfo;
+                currentUser = userData;
                 window.history.replaceState({}, document.title, '/');
-                showProfile(userInfo);
+                showProfile(userData);
 
             } catch (err) {
                 console.error('OAuth error:', err);
@@ -197,7 +175,6 @@
         window.onload = function() {
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
-            
             if (code) {
                 handleCallback(code);
             } else if (currentUser) {
